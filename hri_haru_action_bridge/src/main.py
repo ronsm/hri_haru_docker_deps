@@ -39,6 +39,3 @@ class HRIHaruActionBridge():
 
 if __name__ == '__main__':
     hhab = HRIHaruActionBridge()
-    hhab.tts_goal('Hello, my name is Haru')
-    rospy.sleep(1)
-    hhab.tts_cancel()
