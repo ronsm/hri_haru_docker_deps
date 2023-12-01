@@ -21,6 +21,7 @@ class HRIHaruActionBridge():
 
         # action server waits
         self.ros_ac_tts.wait_for_server()
+        self.ros_ac_routine.wait_for_server()
 
         # spin
         rospy.spin()
