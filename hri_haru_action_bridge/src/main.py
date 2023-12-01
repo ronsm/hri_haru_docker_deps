@@ -1,7 +1,8 @@
 #! /usr/bin/env python3
 import rospy
 import actionlib
-import zenoh
+from flask import Flask, request
+from flask_cors import CORS
 from std_msgs.msg import String, Bool, Int32
 from idmind_tabletop_msgs.msg import TTSAction, TTSActionFeedback, TTSActionGoal, TTSActionResult, TTSGoal
 from idmind_tabletop_msgs.msg import RoutineAction, RoutineActionFeedback, RoutineActionGoal, RoutineActionResult, RoutineGoal
@@ -9,24 +10,16 @@ from idmind_tabletop_msgs.msg import RoutineAction, RoutineActionFeedback, Routi
 class HRIHaruActionBridge():
     def __init__(self):
         # init
-        rospy.init_node('hri_haru_action_bridge')
+        rospy.init_node('hri_haru_action_bridge', disable_signals=True)
 
         # ros handles
         self.ros_ac_tts = actionlib.SimpleActionClient('/idmind_tabletop/action_tts', TTSAction)
         self.ros_ac_routine = actionlib.SimpleActionClient('/idmind_tabletop/action_routine', RoutineAction)
 
-        # zenoh
-        self.zenoh_session = zenoh.open()
-        self.zenoh_sub_tts_goal = self.zenoh_session.declare_subscriber('hri_haru_action_bridge/tts/goal', self.zenoh_cb_tts_goal)
-        self.zenoh_sub_tts_cancel = self.zenoh_session.declare_subscriber('hri_haru_action_bridge/tts/cancel', self.zenoh_cb_tts_cancel)
-        self.zenoh_sub_routine_goal = self.zenoh_session.declare_subscriber('hri_haru_action_bridge/routine/goal', self.zenoh_cb_routine_goal)
-
+        # print('Waiting for ROS action servers...')
         # action server waits
-        self.ros_ac_tts.wait_for_server()
-        self.ros_ac_routine.wait_for_server()
-
-        # spin
-        rospy.spin()
+        # self.ros_ac_tts.wait_for_server()
+        # self.ros_ac_routine.wait_for_server()
 
     # haru interaction
 
@@ -66,3 +59,35 @@ class HRIHaruActionBridge():
 
 if __name__ == '__main__':
     hhab = HRIHaruActionBridge()
+
+    app = Flask(__name__)
+    CORS(app)
+
+    print('Starting Flask...')
+    @app.route('/hri_haru_action_bridge/tts/goal', methods = ['POST'])
+    def tts_goal_handler():
+        command = request.get_json()
+        print('[/hri_haru_action_bridge/tts/goal]', command)
+        hhab.tts_goal(command['data'])
+        return 'OK'
+    
+    @app.route('/hri_haru_action_bridge/tts/cancel', methods = ['POST'])
+    def tts_cancel_handler():
+        command = request.get_json()
+        print('/hri_haru_action_bridge/tts/cancel', command)
+        hhab.tts_cancel()
+        return 'OK'
+    
+    @app.route('/hri_haru_action_bridge/routine/goal', methods = ['POST'])
+    def routine_goal():
+        command = request.get_json()
+        print('/hri_haru_action_bridge/routine/goal', command)
+        routine = None
+        try:
+            routine = int(command['data'])
+        except ValueError:
+            print('Invalid message received, expected integer.')
+        hhab.routine_goal(routine)
+        return 'OK'
+
+    app.run(host='0.0.0.0', port = 5000)
